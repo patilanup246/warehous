@@ -4,7 +4,9 @@ import os
 from bs4 import BeautifulSoup as soup
 import re
 import time
+import random
 import mysql.connector
+
 
 mydb = mysql.connector.connect(
   host="129.146.46.75",
@@ -15,22 +17,23 @@ mydb = mysql.connector.connect(
 
 mycursor = mydb.cursor()
 
-def main(zip_code_lst, unique_url_lst):
-    print("Start")
-    try:
-        options = Options()
-        options.headless = True
+def publicstorage_scrap(zip_code_lst, unique_url_lst):
+    for zip in zip_code_lst:
+        try:
+            url = "https://www.publicstorage.com/self-storage-search?location=" + str(zip)
+            t = random.randint(25, 30)
+            time.sleep(t)
 
-        root_dir = os.path.dirname(os.path.abspath(__file__))
+            options = Options()
+            options.headless = True
 
-        driver = webdriver.Firefox(options=options, executable_path=root_dir + '/geckodriver')
+            root_dir = os.path.dirname(os.path.abspath(__file__))
 
-        for zip in zip_code_lst:
             try:
-                url = "https://www.publicstorage.com/self-storage-search?location=" + str(zip)
+                driver = webdriver.Firefox(options=options, executable_path=root_dir + '/geckodriver')
 
                 driver.get(url)
-                time.sleep(30)
+                time.sleep(3)
                 content = soup(driver.page_source, 'html.parser')
 
                 url_lst = content.findAll("a", {"class": "ps-property-v2__view-plp"})
@@ -52,20 +55,34 @@ def main(zip_code_lst, unique_url_lst):
                     try:
                         storage_link = ur_lst[i]
 
+                        t = random.randint(10, 15)
+                        time.sleep(t)
                         driver.get(storage_link)
                         time.sleep(3)
 
                         content = soup(driver.page_source, 'html.parser')
 
-                        address = re.findall(r'"FormattedAddress":"(.*?)","', content.text)[0]
+                        address = ''
+                        addr_lst = []
+                        addr_lst = re.findall(r'"FormattedAddress":"(.*?)","', content.text)[0].split(" ")
+
+                        for addr in addr_lst:
+                            if len(addr.strip()) > 0:
+                                address = address + " " + addr.strip()
+                        address = address.strip()
+
                         addr_zip_code = address.split(" ")[-1]
 
                         dt_lst = content.findAll("div", {"class": "row ps-properties-propertyV2__units__summary"})
                         for index_data in dt_lst:
                             try:
+                                size_type = ''
                                 size_type = index_data.find("h4", {"class": "ps-properties-propertyV2__units__header"}).text.strip()
+                                price_txt = ''
                                 price_txt = index_data.find("span",{"class": "ps-properties-propertyV2__units__prices__wrapper"})
                                 price = price_txt.text.strip().split('/')[0]
+
+                                print(size_type + ",  " + price + ",  " + address + ", " + addr_zip_code + ", " + storage_link)
 
                                 isexit = False
                                 sql = "SELECT * FROM tbl_publicstorage WHERE address = %s  AND price = %s AND size = %s AND link = %s"
@@ -80,31 +97,19 @@ def main(zip_code_lst, unique_url_lst):
                                     val = (address, price, size_type, addr_zip_code, storage_link)
                                     mycursor.execute(sql, val)
                                     mydb.commit()
+
                             except:
                                 pass
                     except:
                         pass
             except:
                 pass
-        try:
-            driver.quit()
-        except:
-            pass
-    except:
-        try:
-            driver.quit()
-        except:
-            pass
-        pass
-    print("End")
 
-if __name__ == '__main__':
-    zip_code_lst = []
-    unique_url_lst = []
-    with open("zip_code.txt", "r") as f:
-        file = f.read()
-        zip_codes = file.split(",")
-        for code in zip_codes:
-            if len(code.strip()) > 0:
-                zip_code_lst.append(code.strip())
-    main(zip_code_lst, unique_url_lst)
+            try:
+                driver.quit()
+            except:
+                pass
+
+        except:
+            pass
+

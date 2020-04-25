@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup as soup
 import time
+import random
 import mysql.connector
 
 mydb = mysql.connector.connect(
@@ -12,8 +13,11 @@ mydb = mysql.connector.connect(
 
 mycursor = mydb.cursor()
 
+
 def html_parser(req_url):
     try:
+        t = random.randint(10, 15)
+        time.sleep(t)
         req = requests.get(req_url)
         page_soup = soup(req.content, "html5lib")
         time.sleep(2)
@@ -22,7 +26,7 @@ def html_parser(req_url):
         pass
 
 
-def all_addr_url(page_soup, all_url, x, unique_url_lst):
+def all_addr_url(page_soup, all_url, unique_url_lst):
     container_01 = page_soup.findAll("ul", {"class": "no-bullet no-offset collapse-bottom available-services"})
 
     for link_url in container_01:
@@ -32,7 +36,7 @@ def all_addr_url(page_soup, all_url, x, unique_url_lst):
                 url_txt = link_txt.find("a")
 
                 if url_txt.text.strip().replace(' ', '').lower() == 'selfstorage':
-                    url = x + str(url_txt['href'])
+                    url = "https://www.uhaul.com" + str(url_txt['href'])
 
                     if url in unique_url_lst:
                         continue
@@ -43,28 +47,25 @@ def all_addr_url(page_soup, all_url, x, unique_url_lst):
             pass
 
 
-def main(zip_code_lst, unique_url_lst):
-    x = "https://www.uhaul.com"
-    print("Start")
+def uhaul_scrap(zip_code_lst, unique_url_lst):
     for zip in zip_code_lst:
-        time.sleep(2)
         try:
             url = "https://www.uhaul.com/Locations/" + str(zip) + "/Results/"
 
             page_soup = html_parser(url)
 
             all_url = []
-            all_addr_url(page_soup, all_url, x, unique_url_lst)
+            all_addr_url(page_soup, all_url, unique_url_lst)
 
             for i in range(5):
                 try:
                     nxt_urls = page_soup.findAll("a", {"id": "locationSearchNextLocations"})
                     if len(nxt_urls) > 0:
-                        url = x + str(nxt_urls[0]['href'])
+                        url = "https://www.uhaul.com" + str(nxt_urls[0]['href'])
 
                         page_soup = html_parser(url)
 
-                        all_addr_url(page_soup, all_url, x, unique_url_lst)
+                        all_addr_url(page_soup, all_url, unique_url_lst)
                     else:
                         break
                 except:
@@ -113,6 +114,8 @@ def main(zip_code_lst, unique_url_lst):
                                 price = price_txt[0].find("p").find("strong").text.strip()
                                 pass
 
+                            print( size_type + ",  " + price + ",  " + address + ", " + addr_zip_code + ", " + storage_link)
+
                             isexit = False
                             sql = "SELECT * FROM tlb_uhaul WHERE address = %s  AND price = %s AND size = %s AND link = %s"
                             adr = (address, str(price), str(size_type), storage_link)
@@ -126,23 +129,10 @@ def main(zip_code_lst, unique_url_lst):
                                 val = (address, str(price), str(size_type), str(addr_zip_code), storage_link)
                                 mycursor.execute(sql, val)
                                 mydb.commit()
-
                         except:
                             pass
                 except:
                     pass
         except:
             pass
-    print("End")
 
-if __name__ == '__main__':
-    zip_code_lst = []
-    unique_url_lst = []
-
-    with open("zip_code.txt", "r") as f:
-        file = f.read()
-        zip_codes = file.split(",")
-        for code in zip_codes:
-            if len(code.strip()) > 0:
-                zip_code_lst.append(code.strip())
-    main(zip_code_lst, unique_url_lst)
