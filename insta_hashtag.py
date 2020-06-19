@@ -7,12 +7,19 @@ import re
 
 
 
-def get_users(url_post_lst, root_dir):
+def get_users(new_driver, url_post_lst, root_dir):
     try:
-        new_driver = get_driver(root_dir)
+        # Open a new tab-window
+        # This does not change focus to the new window for the driver.
+        new_driver.execute_script("window.open('');")
         for url in url_post_lst:
             try:
+                # Switch to the new tab-window
+                new_driver.switch_to.window(new_driver.window_handles[1])
+
+                # open url in new tab window
                 new_driver.get(url)
+
                 time.sleep(2)
 
                 try:
@@ -88,14 +95,23 @@ def get_users(url_post_lst, root_dir):
 
             except:
                 pass
+
         try:
-            new_driver.quit()
+            # close the active tab
+            new_driver.close()
+
+            # Switch back to the first tab
+            new_driver.switch_to.window(new_driver.window_handles[0])
+
         except:
             pass
 
     except:
         try:
-            new_driver.quit()
+            # close the active tab
+            new_driver.close()
+            # Switch back to the first tab
+            new_driver.switch_to.window(new_driver.window_handles[0])
         except:
             pass
         pass
@@ -131,7 +147,7 @@ def instagram_email_scrap(driver, root_dir):
                         all_post_lst.append(link)
                         url_lst.append(link)
 
-                    get_users(url_lst, root_dir)
+                    get_users(driver, url_lst, root_dir)
 
                 except:
                     pass
@@ -175,7 +191,7 @@ def get_driver(root_dir):
     try:
         # open the chrome driver
         options = Options()
-        options.add_argument("--headless")
+       # options.add_argument("--headless")
 
         driver = webdriver.Chrome(service_log_path='NUL', options=options,
                                   executable_path=root_dir + '/chromedriver.exe')
